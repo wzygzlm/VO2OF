@@ -1,4 +1,4 @@
-% Example: convert a ROS bag with events, images and IMU data to aedat file
+%% Read data
 clear, clc, close ALL
 
 [file,path,indx] = uigetfile('*.bag', 'Select a File', '/media/minliu/dataset/MVSEC'); %gets directory
@@ -9,10 +9,21 @@ else
    disp(['User selected ', fullname])
 end
 
-bagselect = rosbag(fullname);
+bag = rosbag(fullname);
 
-% Support in R2018a
-% rosbag info fullname
+% Supported on R2018a, not work on R2016b
+bagInfo = rosbag('info', fullname)
 
-pose_topicd = select(bagselect,'Time',...
-    [bagselect.StartTime bagselect.EndTime],'Topic','/davis/left/pose');
+left_pose = select(bag,'Time',...
+    [bag.StartTime bag.EndTime],'Topic','/davis/left/pose')
+
+msgStructs = readMessages(left_pose,'DataFormat','struct');
+msgStructs{1}.Header.Stamp.Sec
+
+%% Extract all poses
+Positions = cellfun(@(m) m.Pose.Position, msgStructs);
+Orientations = cellfun(@(m) m.Pose.Orientation, msgStructs);
+
+%% Plot poses
+pose_plot(left_pose.NumMessages, Positions, Orientations);
+
