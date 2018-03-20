@@ -83,6 +83,7 @@ for i=1:itv:pose_num
 end;
 
 
+
 close(aviobj);
 
 fprintf('Done\n');
