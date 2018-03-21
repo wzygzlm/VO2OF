@@ -29,13 +29,14 @@ cx = left_camera_K(3);
 cy = left_camera_K(6);
 
 
-%% Extract all poses
+%% Extract all poses and its lie algebras
 Positions = cellfun(@(m) m.Pose.Position, left_pose_msg);
 Orientations = cellfun(@(m) m.Pose.Orientation, left_pose_msg);
 left_pose_orientation = quat2rotm(reshape([Orientations.X Orientations.Y Orientations.Z Orientations.W],...
     numel(Orientations), 4));
 left_pose_translation = reshape([Positions.X Positions.Y Positions.Z], numel(Positions), 3);
 left_pose_ts = cellfun(@(m) RosTs2MatlabSec(m.Header.Stamp), left_pose_msg);
+left_pose_LieAg = Pose2LieAg(left_pose_orientation, left_pose_translation, left_pose_ts);
 
 %% Plot poses
 % pose_plot(left_pose.NumMessages, Positions, Orientations);
@@ -62,19 +63,11 @@ ylabel('y', 'fontsize',16);
 zlabel('z', 'fontsize',16);
 h_legend=legend('X','Y','Z');
 
-R_old = quat2rotm([Orientations(1).X Orientations(1).Y Orientations(1).Z Orientations(1).W]);
-t_old =[Positions(1).X Positions(1).Y Positions(1).Z];
-ts_old_sec = left_pose_msg{1}.Header.Stamp.Sec;
-ts_old_nsec = left_pose_msg{1}.Header.Stamp.Nsec;
-
-% Initial old pose in SE3 representation.
-pose_SE3_old = blkdiag(R_old, 1);
-pose_SE3_old(1:3, 4) = t_old;
-
-left_pose_LieAg = Pose2LieAg(left_pose_orientation, left_pose_translation, left_pose_ts);
-
 start_time = bag.StartTime;
 time_delta = 1;
+
+vx = zeros(246,360);
+vy = zeros(246,360);
 
 while start_time + time_delta <= bag.EndTime - 68
     left_events = select(bag,'Time', [bag.StartTime start_time + time_delta],'Topic','/davis/left/events')
@@ -99,9 +92,19 @@ while start_time + time_delta <= bag.EndTime - 68
             i = index_association(numel(index_association));
             
             %% OF conversion
-
-
-
+             event_x = Events(j).X;
+             event_y = Events(j).Y;
+             Z = 1;
+             
+             X = (event_x * Z - cx)/fx;
+             Y = (event_y * Z - cy)/fy;
+             
+             offset = double([fx/Z, 0, -fx*X/Z, -fx*X*Y/Z^2, fx + fx*X^2/Z^2, -fx*Y/Z;...
+                                     0, fy/Z, -fy*Y/Z,  -fy - fx*Y^2/Z^2, fy*X*Y/Z^2, fy*X/Z]) * left_pose_LieAg(i,:)';   
+             vx(event_x + 1, event_y + 1) = offset(1);
+             vy(event_x + 1, event_y + 1) = offset(2);
+             OF_GT = opticalFlow(vx, vy);
+             plot(OF_GT);
 %             if mod(i, itv) ~= 0
 %                 continue;
 %             end
