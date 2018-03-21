@@ -1,6 +1,22 @@
 % Positions and Orientations are not directly the array, in fact it's a
 % struct obtained from rosbag messages.
-function pose_plot(pose_num, Positions, Orientations)
+function pose_plot(pose_num, Positions, Orientations, itv)
+
+% Check number of inputs.
+if nargin > 4
+    error('pose_plot:TooManyInputs', ...
+        'requires at most 4 optional inputs');
+end
+if nargin < 3
+    error('pose_plot:TooFewInputs', ...
+        'requires at leat 3 optional inputs');
+end
+
+% Fill in unset optional values.
+switch nargin
+    case 3
+        itv = 20;
+end
 
 length = 0.1;
 aviobj = VideoWriter('test.avi');
@@ -11,8 +27,6 @@ scrsz = get(0,'ScreenSize');
 fig=figure('Position',[1 scrsz(4)/2 scrsz(3)/2 scrsz(4)/2]);
 title_handle = title('Quadrotor 6DOF coordinates plot');
 
-
-itv=20;
 rotation_spd=0.5;
 delay=0.02;
 
