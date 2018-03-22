@@ -127,7 +127,7 @@ depth = ones(260,346);
                 %              vx(event_x + 1, event_y + 1) = offset(1);
                 %              vy(event_x + 1, event_y + 1) = offset(2);
                 OF_GT = opticalFlow(vx, vy);
-                plot(OF_GT);
+                plot(OF_GT, 'DecimationFactor',[10 10],'ScaleFactor',10);
             if mod(i, itv) ~= 0
                 continue;
             end

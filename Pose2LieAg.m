@@ -37,7 +37,7 @@ function [T_se3] = Pose2LieAg(pose_orientation, pose_translation, pose_ts)
 %             T_se3_appr = T_se3_appr/dt
 
         % Convert it to [velocity, angular_acc] representation
-        T_se3(i,:,:) = T_se3(i,:,:)/dt;
+        T_se3(i,:,:) = T_se3(i,:,:);
     end
 end
 
