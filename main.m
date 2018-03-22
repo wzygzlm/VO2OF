@@ -29,7 +29,7 @@ fy = left_camera_K(5);
 cx = left_camera_K(3);
 cy = left_camera_K(6);
 
-left_depth = select(bag,'Time', [bag.StartTime bag.EndTime],'Topic','/davis/left/depth_image_rect')
+left_depth = select(bag,'Time', [bag.StartTime bag.EndTime],'Topic','/davis/left/depth_image_raw')
 left_depth_msg = readMessages(left_depth,'DataFormat','struct');
 
 left_image = select(bag,'Time', [bag.StartTime bag.EndTime],'Topic','/davis/left/image_raw')
