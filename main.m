@@ -28,6 +28,9 @@ fy = left_camera_K(5);
 cx = left_camera_K(3);
 cy = left_camera_K(6);
 
+left_depth = select(bag,'Time', [bag.StartTime bag.StartTime + 1],'Topic','/davis/left/depth_image_raw')
+left_depth_msg = readMessages(left_depth,'DataFormat','struct');
+
 
 %% Extract all poses and its lie algebras
 Positions = cellfun(@(m) m.Pose.Position, left_pose_msg);
@@ -66,52 +69,72 @@ h_legend=legend('X','Y','Z');
 start_time = bag.StartTime;
 time_delta = 1;
 
-vx = zeros(246,360);
-vy = zeros(246,360);
+vx = zeros(260,346);
+vy = zeros(260,346);
+PointCloud = ones(260, 346, 3);
+PointCloud(:,:,1) = cumsum(PointCloud(:,:,1)) - 1;
+PointCloud(:,:,2) = cumsum(PointCloud(:,:,2), 2) - 1;
+depth = ones(260,346);
 
-while start_time + time_delta <= bag.EndTime - 68
-    left_events = select(bag,'Time', [bag.StartTime start_time + time_delta],'Topic','/davis/left/events')
-    left_events_msg = readMessages(left_events,'DataFormat','struct');
-    
-    EventArray = cell2mat(left_events_msg);
-    last_Events = EventArray(numel(EventArray)).Events;
-    last_Ts = last_Events(numel(last_Events)).Ts;
-    start_time = RosTs2MatlabSec(last_Ts);
-    
-    for k=1:numel(EventArray)
-        Events = EventArray(k).Events;
-        for j=1:numel(Events)     
+ for i=2:left_pose.NumMessages   
             %% Data association
-            event_ts = RosTs2MatlabSec(Events(j).Ts);
-            index_association = find((left_pose_ts - event_ts) <= 0);
-            % Make sure there're at least 2 poses, so one can be use the
-            % new one and the other as the old one.
-            if (numel(index_association) <= 2)
-                continue;
-            end
-            i = index_association(numel(index_association));
-            
-            %% OF conversion
-             event_x = Events(j).X;
-             event_y = Events(j).Y;
-             Z = 1;
-             
-             X = (event_x * Z - cx)/fx;
-             Y = (event_y * Z - cy)/fy;
-             
-             offset = double([fx/Z, 0, -fx*X/Z, -fx*X*Y/Z^2, fx + fx*X^2/Z^2, -fx*Y/Z;...
-                                     0, fy/Z, -fy*Y/Z,  -fy - fx*Y^2/Z^2, fy*X*Y/Z^2, fy*X/Z]) * left_pose_LieAg(i,:)';   
-             vx(event_x + 1, event_y + 1) = offset(1);
-             vy(event_x + 1, event_y + 1) = offset(2);
-             OF_GT = opticalFlow(vx, vy);
-             plot(OF_GT);
-%             if mod(i, itv) ~= 0
+%             event_ts = RosTs2MatlabSec(Events(j).Ts);
+%             index_association = find((left_pose_ts - event_ts) <= 0);
+%             % Make sure there're at least 2 poses, so one can be use the
+%             % new one and the other as the old one.
+%             if (numel(index_association) <= 2)
 %                 continue;
 %             end
-% 
-%             %% Plot poses
+%             i = index_association(numel(index_association));
+            
+            %% OF conversion
+%              event_x = Events(j).X;
+%              event_y = Events(j).Y;
+                dataArray = left_depth_msg{1}.Data;
+                dataArray = reshape(dataArray, 1, 4*left_depth_msg{1}.Height*left_depth_msg{1}.Width);
+                depthFloat = typecast( dataArray , 'single') ;
+                depth = reshape(depthFloat, 260, 346);
+                PointCloud(:,:,1) = (PointCloud(:,:,1).* depth - cx)/fx;
+                PointCloud(:,:,2) = (PointCloud(:,:,2).* depth -cy)/fx;
+                PointCloud(:,:,3) = depth;
+                
+                % Reshape the image to a row whole vector so we can get a
+                % good shape for calculating the Jacobbi matrix between pixel
+                % and the twist.
+                X = reshape(PointCloud(:,:,1), 1, []);
+                Y = reshape(PointCloud(:,:,2), 1, []);
+                Z = reshape(PointCloud(:,:,3), 1, []);             
+
+
+                % Reshape the result to [2*260*346, 6] with every 2 rows are
+                % belong to one image point.
+                temp = double([fx./Z, zeros(1, 260*346), -fx.*X./Z, -fx.*X.*Y./Z.^2, fx + fx.*X.^2./Z.^2, -fx.*Y./Z;...
+                                 zeros(1, 260*346), fy./Z, -fy.*Y./Z,  -fy - fx.*Y.^2./Z.^2, fy.*X.*Y./Z.^2, fy.*X./Z]);
+                temp = temp';
+                temp = reshape(temp, [], 12);
+                temp = temp';
+                temp = reshape(temp, 6, []);
+                temp = temp';
+
+                % Calculate the whole image's lie algebra
+                lie_alg = temp * left_pose_LieAg(i,:)';    
+                lie_alg = reshape(lie_alg, 2, []);
+
+                vx = reshape(lie_alg(1,:), 260, 346);
+                vy = reshape(lie_alg(2,:), 260, 346);
+                %              offset = double([fx/Z, 0, -fx*X/Z, -fx*X*Y/Z^2, fx + fx*X^2/Z^2, -fx*Y/Z;...
+                %                                      0, fy/Z, -fy*Y/Z,  -fy - fx*Y^2/Z^2, fy*X*Y/Z^2, fy*X/Z]) * left_pose_LieAg(i,:)';   
+                %              vx(event_x + 1, event_y + 1) = offset(1);
+                %              vy(event_x + 1, event_y + 1) = offset(2);
+                OF_GT = opticalFlow(vx, vy);
+                plot(OF_GT);
+            if mod(i, itv) ~= 0
+                continue;
+            end
+
+            %% Plot poses
 %             el=64;
-%             R = R_new;
+%             R = left_pose_orientation(:,:,i);
 % 
 %             % generate axis vectors
 %             tx = [length,0.0,0.0];
@@ -124,7 +147,7 @@ while start_time + time_delta <= bag.EndTime - 68
 % 
 % 
 %             % translate vectors to camera position. Make the vectors for plotting
-%             origin=t_new;
+%             origin=left_pose_translation(i,:);
 %             tx_vec(1,1:3) = origin;
 %             tx_vec(2,:) = t_x_new + origin';
 %             ty_vec(1,1:3) = origin;
@@ -155,9 +178,7 @@ while start_time + time_delta <= bag.EndTime - 68
 % 
 %             az=az+rotation_spd;
 %             view(az,el);
-%             drawnow;
-%             pause(delay);  % in second
-        end
-    end       
+            drawnow;
+%             pause(delay);  % in second                 
 end
 
