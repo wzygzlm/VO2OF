@@ -83,7 +83,9 @@ OF_GT = zeros(left_pose.NumMessages, 2, height, width);
 
 depth = ones(height,width);
 fig_image=figure;
-title_handle_img = title('DAVIS Raw APS image');
+
+opticFlow = opticalFlowLK('NoiseThreshold',0.009);
+
 
  for i=2:numel(left_image_msg)   
         %% Point Cloud Initialization
@@ -124,9 +126,11 @@ title_handle_img = title('DAVIS Raw APS image');
 %             % one.
             img = reshape(left_image_msg{i}.Data, width, height);
             change_current_figure(fig_image);
+%             lk_flow = estimateFlow(opticFlow,img'); 
             imshow(img');
+            imshow(depth);
+            title_handle_img = title('DAVIS Raw APS image');
             hold on;
-%             imshow(depth);
             PointCloud(:,:,1) = (PointCloud(:,:,1).* depth - cx)/fx;
             PointCloud(:,:,2) = (PointCloud(:,:,2).* depth - cy)/fy;
             PointCloud(:,:,3) = depth;
@@ -166,6 +170,7 @@ title_handle_img = title('DAVIS Raw APS image');
             flow = opticalFlow(vx, vy);
             change_current_figure(fig_image);
             plot(flow, 'DecimationFactor',[10 10],'ScaleFactor',10);
+%             plot(lk_flow, 'DecimationFactor',[10 10],'ScaleFactor',10);
             if mod(i, itv) ~= 0
                 continue;
             end
