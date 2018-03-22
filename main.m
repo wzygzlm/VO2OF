@@ -58,7 +58,7 @@ scrsz = get(0,'ScreenSize');
 fig=figure('Position',[1 scrsz(4)/2 scrsz(3)/2 scrsz(4)/2]);
 title_handle = title('Quadrotor 6DOF coordinates plot');
 
-itv=1;
+itv=20;
 rotation_spd=0;
 delay=0.02;
 
@@ -79,7 +79,8 @@ height = 260;
 width = 346;
 vx = zeros(height,width);
 vy = zeros(height,width);
-OF_GT = zeros(left_pose.NumMessages, 2, height, width);
+loopCount = left_pose.NumMessages; 
+OF_GT = zeros(height, width, 2, loopCount);
 colorFlow = zeros(height, width, 2);
 
 depth = ones(height,width);
@@ -88,18 +89,19 @@ fig_depth = figure;
 
 opticFlow = opticalFlowLK('NoiseThreshold',0.009);
 
-last_pose_index = 1;
-current_pose_index = 1;
+last_image_index = 1;
+pose_related_images_cnt = 1;
+pose_related_images_indexes = zeros(100, 1);
 
- for i=2:numel(left_image_msg)   
-        %% Point Cloud Initialization
+for i=2:loopCount   	
+    %% Point Cloud Initialization
         PointCloud = ones(height, width, 3);
         PointCloud(:,:,1) = cumsum(PointCloud(:,:,1), 2) - 1;
         PointCloud(:,:,2) = cumsum(PointCloud(:,:,2)) - 1;
 
         %% Data association
 %             event_ts = RosTs2MatlabSec(Events(j).Ts);
-        currentTs = left_image_ts(i);
+        currentTs = left_pose_ts(i);
         index_association_depth = find(left_depth_ts <= currentTs);
         % Make sure it is not empty
         if (numel(index_association_depth) <= 1)
@@ -107,15 +109,31 @@ current_pose_index = 1;
         end
         depth_index = index_association_depth(numel(index_association_depth));
 
-        index_association_image = find(left_pose_ts <= currentTs);
+        index_association_image = find(left_image_ts <= currentTs);
         % Make sure it is not empty
         if (numel(index_association_image) <= 1)
             continue;
         end
-        last_pose_index = current_pose_index;
-        current_pose_index = index_association_image(numel(index_association_image));
-        fprintf('The %d th data association, image_ts - pose_ts is %.4f and image_ts - depth_ts is %.4f\n',...
-            i, currentTs - left_pose_ts(current_pose_index), currentTs - left_depth_ts(depth_index));
+        current_image_index = index_association_image(numel(index_association_image));
+        if current_image_index == last_image_index
+            pose_related_images_indexes(pose_related_images_cnt) = i;
+            pose_related_images_cnt = pose_related_images_cnt + 1;
+        else
+            last_image_index = current_image_index;
+            pose_related_images_indexes(pose_related_images_cnt) = i;
+            OF_APS_GT = sum(OF_GT(:, :, :, pose_related_images_indexes(find(pose_related_images_indexes ~= 0))), 4);
+            pose_related_images_cnt = 1;
+            pose_related_images_indexes = zeros(100, 1);
+            img = reshape(left_image_msg{current_image_index}.Data, width, height);
+            change_current_figure(fig_image);
+            lk_flow = estimateFlow(opticFlow,img'); 
+            imshow(img');
+            hold on;
+            flow = opticalFlow(OF_APS_GT(:,:,1), OF_APS_GT(:,:,2)); 
+            plot(flow, 'DecimationFactor',[10 10],'ScaleFactor',10);
+        end
+        fprintf('The %dth data association, pose_ts - image_ts is %.4f and pose_ts - depth_ts is %.4f\n',...
+            i, currentTs - left_image_ts(current_image_index), currentTs - left_depth_ts(depth_index));
 
         %% OF conversion
             dataArray = left_depth_msg{depth_index}.Data;
@@ -131,16 +149,12 @@ current_pose_index = 1;
 %                 imshow(permute(img, [2 1 3]));
 %             % If image is from the standard DAVIS APS, then use this
 %             % one.
-            img = reshape(left_image_msg{i}.Data, width, height);
-            change_current_figure(fig_image);
-%             lk_flow = estimateFlow(opticFlow,img'); 
-            imshow(img');
-            hold on;
-            title_handle_img = title('DAVIS Raw APS image');            
-            change_current_figure(fig_depth);
-            title_handle_depth = title('DAVIS depth image');            
-            imshow(depth);
-            hold on;
+
+%             title_handle_img = title('DAVIS Raw APS image');            
+%             change_current_figure(fig_depth);
+%             title_handle_depth = title('DAVIS depth image');            
+%             imshow(depth);
+%             hold on;
             PointCloud(:,:,1) = (PointCloud(:,:,1).* depth - cx)/fx;
             PointCloud(:,:,2) = (PointCloud(:,:,2).* depth - cy)/fy;
             PointCloud(:,:,3) = depth;
@@ -163,22 +177,22 @@ current_pose_index = 1;
             temp = temp';
 
             % Calculate the whole image's lie algebra
-            lie_alg = temp * sum(left_pose_LieAg(last_pose_index+1:current_pose_index,:)', 2);    
+            lie_alg = temp * left_pose_LieAg(i,:)';    
             lie_alg = reshape(lie_alg, 2, []);
 
             vx = reshape(lie_alg(1,:), height, width);
             vy = reshape(lie_alg(2,:), height, width);
             vx = -vx;
             vy = -vy;
-            OF_GT(i, 1, :, :) = vx;
-            OF_GT(i, 2, :, :) = vy;
+            OF_GT(:, :, 1, i) = vx;
+            OF_GT(:, :, 2, i) = vy;
             %              offset = double([fx/Z, 0, -fx*X/Z, -fx*X*Y/Z^2, fx + fx*X^2/Z^2, -fx*Y/Z;...
             %                                      0, fy/Z, -fy*Y/Z,  -fy - fx*Y^2/Z^2, fy*X*Y/Z^2, fy*X/Z]) * left_pose_LieAg(i,:)';   
             %              vx(event_x + 1, event_y + 1) = offset(1);
             %              vy(event_x + 1, event_y + 1) = offset(2);
-            flow = opticalFlow(vx, vy);
-            colorFlow(:,:,1) = vx;
-            colorFlow(:,:,2) = vy;            
+%             flow = opticalFlow(vx, vy);
+%             colorFlow(:,:,1) = vx;
+%             colorFlow(:,:,2) = vy;            
 %             change_current_figure(fig_depth);
 %             flowImg = flowToColor(colorFlow);
 %             [rowIndex,colIndex] = find(~isnan(vx) & ~isnan(vy));
@@ -186,17 +200,28 @@ current_pose_index = 1;
 %             rgbImage = ind2rgb(img', colormap(gray));
 %             newImg = (rgbImage  + double(flowImg)/255);
 %             imshow(flowImg);
-            change_current_figure(fig_image);
-            plot(flow, 'DecimationFactor',[10 10],'ScaleFactor',10);
+%             change_current_figure(fig_image);
+%             plot(flow, 'DecimationFactor',[10 10],'ScaleFactor',10);
 %             change_current_figure(fig_image);
 %             plot(lk_flow, 'DecimationFactor',[10 10],'ScaleFactor',10);
+
+%             index_association_image = find(left_pose_ts <= currentTs);
+%             % Make sure it is not empty
+%             if (numel(index_association_image) <= 1)
+%                 continue;
+%             end
+%             last_pose_index = current_pose_index;
+%             current_pose_index = index_association_image(numel(index_association_image));
+
+
+
             if mod(i, itv) ~= 0
                 continue;
             end
 
             %% Plot poses
             el=64;
-            R = left_pose_orientation(:,:,current_pose_index);
+            R = left_pose_orientation(:,:,i);
 
             % generate axis vectors
             tx = [length,0.0,0.0];
@@ -209,7 +234,7 @@ current_pose_index = 1;
 
 
             % translate vectors to camera position. Make the vectors for plotting
-            origin=left_pose_translation(current_pose_index,:);
+            origin=left_pose_translation(i,:);
             tx_vec(1,1:3) = origin;
             tx_vec(2,:) = t_x_new + origin';
             ty_vec(1,1:3) = origin;
@@ -228,10 +253,10 @@ current_pose_index = 1;
             p1=plot3(tz_vec(:,1), tz_vec(:,2), tz_vec(:,3));
             set(p1,'Color','Red','LineWidth',1);
 
-            if count * itv >= numel(left_image_msg) 
+            if count * itv >= loopCount 
                 perc = 100;
             else
-                perc = count*itv/numel(left_image_msg)*100;
+                perc = count*itv/loopCount*100;
             end
         %     fprintf('Process = %f\n',perc);
         %     text(1,-3,0,['Process = ',num2str(perc),'%']);
