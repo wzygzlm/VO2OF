@@ -88,6 +88,8 @@ fig_depth = figure;
 
 opticFlow = opticalFlowLK('NoiseThreshold',0.009);
 
+last_pose_index = 1;
+current_pose_index = 1;
 
  for i=2:numel(left_image_msg)   
         %% Point Cloud Initialization
@@ -110,7 +112,10 @@ opticFlow = opticalFlowLK('NoiseThreshold',0.009);
         if (numel(index_association_image) <= 1)
             continue;
         end
-        pose_index = index_association_image(numel(index_association_image));
+        last_pose_index = current_pose_index;
+        current_pose_index = index_association_image(numel(index_association_image));
+        fprintf('The %d th data association, image_ts - pose_ts is %.4f and image_ts - depth_ts is %.4f\n',...
+            i, currentTs - left_pose_ts(current_pose_index), currentTs - left_depth_ts(depth_index));
 
         %% OF conversion
             dataArray = left_depth_msg{depth_index}.Data;
@@ -158,7 +163,7 @@ opticFlow = opticalFlowLK('NoiseThreshold',0.009);
             temp = temp';
 
             % Calculate the whole image's lie algebra
-            lie_alg = temp * left_pose_LieAg(pose_index,:)';    
+            lie_alg = temp * sum(left_pose_LieAg(last_pose_index+1:current_pose_index,:)', 2);    
             lie_alg = reshape(lie_alg, 2, []);
 
             vx = reshape(lie_alg(1,:), height, width);
@@ -181,7 +186,7 @@ opticFlow = opticalFlowLK('NoiseThreshold',0.009);
 %             rgbImage = ind2rgb(img', colormap(gray));
 %             newImg = (rgbImage  + double(flowImg)/255);
 %             imshow(flowImg);
-            change_current_figure(fig_depth);
+            change_current_figure(fig_image);
             plot(flow, 'DecimationFactor',[10 10],'ScaleFactor',10);
 %             change_current_figure(fig_image);
 %             plot(lk_flow, 'DecimationFactor',[10 10],'ScaleFactor',10);
@@ -191,7 +196,7 @@ opticFlow = opticalFlowLK('NoiseThreshold',0.009);
 
             %% Plot poses
             el=64;
-            R = left_pose_orientation(:,:,pose_index);
+            R = left_pose_orientation(:,:,current_pose_index);
 
             % generate axis vectors
             tx = [length,0.0,0.0];
@@ -204,7 +209,7 @@ opticFlow = opticalFlowLK('NoiseThreshold',0.009);
 
 
             % translate vectors to camera position. Make the vectors for plotting
-            origin=left_pose_translation(pose_index,:);
+            origin=left_pose_translation(current_pose_index,:);
             tx_vec(1,1:3) = origin;
             tx_vec(2,:) = t_x_new + origin';
             ty_vec(1,1:3) = origin;
