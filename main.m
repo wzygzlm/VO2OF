@@ -80,9 +80,11 @@ width = 346;
 vx = zeros(height,width);
 vy = zeros(height,width);
 OF_GT = zeros(left_pose.NumMessages, 2, height, width);
+colorFlow = zeros(height, width, 2);
 
 depth = ones(height,width);
-fig_image=figure;
+fig_image = figure;
+fig_depth = figure;
 
 opticFlow = opticalFlowLK('NoiseThreshold',0.009);
 
@@ -128,8 +130,11 @@ opticFlow = opticalFlowLK('NoiseThreshold',0.009);
             change_current_figure(fig_image);
 %             lk_flow = estimateFlow(opticFlow,img'); 
             imshow(img');
+            hold on;
+            title_handle_img = title('DAVIS Raw APS image');            
+            change_current_figure(fig_depth);
+            title_handle_depth = title('DAVIS depth image');            
             imshow(depth);
-            title_handle_img = title('DAVIS Raw APS image');
             hold on;
             PointCloud(:,:,1) = (PointCloud(:,:,1).* depth - cx)/fx;
             PointCloud(:,:,2) = (PointCloud(:,:,2).* depth - cy)/fy;
@@ -140,8 +145,7 @@ opticFlow = opticalFlowLK('NoiseThreshold',0.009);
             % and the twist.
             X = reshape(PointCloud(:,:,1), 1, []);
             Y = reshape(PointCloud(:,:,2), 1, []);
-            Z = reshape(PointCloud(:,:,3), 1, []);             
-
+            Z = reshape(PointCloud(:,:,3), 1, []);           
 
             % Reshape the result to [2*height*width, 6] with every 2 rows are
             % belong to one image point.
@@ -168,8 +172,18 @@ opticFlow = opticalFlowLK('NoiseThreshold',0.009);
             %              vx(event_x + 1, event_y + 1) = offset(1);
             %              vy(event_x + 1, event_y + 1) = offset(2);
             flow = opticalFlow(vx, vy);
-            change_current_figure(fig_image);
+            colorFlow(:,:,1) = vx;
+            colorFlow(:,:,2) = vy;            
+%             change_current_figure(fig_depth);
+%             flowImg = flowToColor(colorFlow);
+%             [rowIndex,colIndex] = find(~isnan(vx) & ~isnan(vy));
+%             img(colIndex,rowIndex) = 0;
+%             rgbImage = ind2rgb(img', colormap(gray));
+%             newImg = (rgbImage  + double(flowImg)/255);
+%             imshow(flowImg);
+            change_current_figure(fig_depth);
             plot(flow, 'DecimationFactor',[10 10],'ScaleFactor',10);
+%             change_current_figure(fig_image);
 %             plot(lk_flow, 'DecimationFactor',[10 10],'ScaleFactor',10);
             if mod(i, itv) ~= 0
                 continue;
@@ -197,7 +211,6 @@ opticFlow = opticalFlowLK('NoiseThreshold',0.009);
             ty_vec(2,:) = t_y_new + origin';
             tz_vec(1,1:3) = origin;
             tz_vec(2,:) = t_z_new + origin';
-
 
             change_current_figure(fig);
             hold on;
