@@ -6,7 +6,7 @@ function [ se3] = SE3_se3_back( SE3 )
     lnR=(theta/(2*sin(theta)))*(R-R');
     w=[-lnR(2,3) lnR(1,3) -lnR(1,2)];
     wx=[0 -w(3) w(2);w(3) 0 -w(1);-w(2) w(1) 0];
-    if(theta==0),
+    if(theta==0)
         Vin=eye(3);
     else
         A=sin(theta)/theta;
