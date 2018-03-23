@@ -44,7 +44,7 @@ count=1;
 for i=1:itv:pose_num
     el=64;
 
-    R = quat2rotm([Orientations(i).X Orientations(i).Y Orientations(i).Z Orientations(i).W]);
+    R = quat2rotm([Orientations(i).W Orientations(i).X Orientations(i).Y Orientations(i).Z]);
     
     % generate axis vectors
     tx = [length,0.0,0.0];

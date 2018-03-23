@@ -38,7 +38,7 @@ left_image_msg = readMessages(left_image,'DataFormat','struct');
 %% Extract all poses and its lie algebras
 Positions = cellfun(@(m) m.Pose.Position, left_pose_msg);
 Orientations = cellfun(@(m) m.Pose.Orientation, left_pose_msg);
-left_pose_orientation = quat2rotm(reshape([Orientations.X Orientations.Y Orientations.Z Orientations.W],...
+left_pose_orientation = quat2rotm(reshape([Orientations.W Orientations.X Orientations.Y Orientations.Z],...
     numel(Orientations), 4));
 left_pose_translation = reshape([Positions.X Positions.Y Positions.Z], numel(Positions), 3);
 left_pose_ts = cellfun(@(m) RosTs2MatlabSec(m.Header.Stamp), left_pose_msg);
