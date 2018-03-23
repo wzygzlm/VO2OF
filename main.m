@@ -90,7 +90,7 @@ fig_depth = figure;
 opticFlow = opticalFlowLK('NoiseThreshold',0.009);
 
 last_image_index = 1;
-pose_related_images_cnt = 1;
+pose_related_images_pointer = 1;
 pose_related_images_indexes = zeros(100, 1);
 
 for i=2:loopCount   	
@@ -116,14 +116,10 @@ for i=2:loopCount
         end
         current_image_index = index_association_image(numel(index_association_image));
         if current_image_index == last_image_index
-            pose_related_images_indexes(pose_related_images_cnt) = i;
-            pose_related_images_cnt = pose_related_images_cnt + 1;
+            pose_related_images_indexes(pose_related_images_pointer) = i;
+            pose_related_images_pointer = pose_related_images_pointer + 1;
         else
-            last_image_index = current_image_index;
-            pose_related_images_indexes(pose_related_images_cnt) = i;
             OF_APS_GT = sum(OF_GT(:, :, :, pose_related_images_indexes(find(pose_related_images_indexes ~= 0))), 4);
-            pose_related_images_cnt = 1;
-            pose_related_images_indexes = zeros(100, 1);
             img = reshape(left_image_msg{current_image_index}.Data, width, height);
             change_current_figure(fig_image);
             lk_flow = estimateFlow(opticFlow,img'); 
@@ -131,6 +127,10 @@ for i=2:loopCount
             hold on;
             flow = opticalFlow(OF_APS_GT(:,:,1), OF_APS_GT(:,:,2)); 
             plot(flow, 'DecimationFactor',[10 10],'ScaleFactor',10);
+            pose_related_images_indexes = zeros(100, 1);
+            pose_related_images_indexes(1) = i;
+            pose_related_images_pointer = 2;
+            last_image_index = current_image_index;
         end
         fprintf('The %dth data association, pose_ts - image_ts is %.4f and pose_ts - depth_ts is %.4f\n',...
             i, currentTs - left_image_ts(current_image_index), currentTs - left_depth_ts(depth_index));
@@ -202,8 +202,8 @@ for i=2:loopCount
 %             imshow(flowImg);
 %             change_current_figure(fig_image);
 %             plot(flow, 'DecimationFactor',[10 10],'ScaleFactor',10);
-%             change_current_figure(fig_image);
-%             plot(lk_flow, 'DecimationFactor',[10 10],'ScaleFactor',10);
+            change_current_figure(fig_image);
+            plot(lk_flow, 'DecimationFactor',[10 10],'ScaleFactor',10);
 
 %             index_association_image = find(left_pose_ts <= currentTs);
 %             % Make sure it is not empty
@@ -266,7 +266,7 @@ for i=2:loopCount
             count=count+1;   
 
             az=az+rotation_spd;
-%             view(az,el);
+%             view(az,el); 
             drawnow;
 %             pause(delay);  % in second                 
  end
