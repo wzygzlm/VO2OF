@@ -150,11 +150,12 @@ for i=2:loopCount
 %             % If image is from the standard DAVIS APS, then use this
 %             % one.
 
-%             title_handle_img = title('DAVIS Raw APS image');            
-%             change_current_figure(fig_depth);
-%             title_handle_depth = title('DAVIS depth image');            
-%             imshow(depth);
-%             hold on;
+            title_handle_img = title('DAVIS Raw APS image');            
+            change_current_figure(fig_depth);
+            title_handle_depth = title('DAVIS depth image');   
+            depth_img = depth/max(depth(:)); % Normalization for image show
+            imshow(depth_img);
+            hold on;
             PointCloud(:,:,1) = (PointCloud(:,:,1).* depth - cx)/fx;
             PointCloud(:,:,2) = (PointCloud(:,:,2).* depth - cy)/fy;
             PointCloud(:,:,3) = depth;
