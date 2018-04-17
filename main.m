@@ -156,8 +156,8 @@ for i=2:loopCount
             depth_img = depth/max(depth(:)); % Normalization for image show
             imshow(depth_img);
             hold on;
-            PointCloud(:,:,1) = (PointCloud(:,:,1).* depth - cx)/fx;
-            PointCloud(:,:,2) = (PointCloud(:,:,2).* depth - cy)/fy;
+            PointCloud(:,:,1) = (PointCloud(:,:,1) - cx).*depth/fx;
+            PointCloud(:,:,2) = (PointCloud(:,:,2) - cy).*depth/fy;
             PointCloud(:,:,3) = depth;
 
             % Reshape the image to a row whole vector so we can get a
