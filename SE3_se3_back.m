@@ -1,4 +1,4 @@
-function [ se3] = SE3_se3_back( SE3 )
+function [se3 jacobian] = SE3_se3_back( SE3 )
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
     R=SE3(1:3,1:3);
@@ -17,5 +17,5 @@ function [ se3] = SE3_se3_back( SE3 )
     end
     u=Vin*SE3(1:3,4);
     se3=[u' w];
-
+    jacobian = Vin;
 end
